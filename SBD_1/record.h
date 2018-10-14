@@ -7,6 +7,12 @@ struct Record
 	bool isInitialized() const;
 	double Energy() const;
 
+	bool operator==(const Record& record) const;
+	bool operator>(const Record& record) const;
+	bool operator<(const Record& record) const;
+	bool operator>=(const Record& record) const;
+	bool operator<=(const Record& record) const;
+
 	static constexpr double UNINIT = -1;
 	static const unsigned int RECORD_SIZE = 2 * sizeof(double);
 

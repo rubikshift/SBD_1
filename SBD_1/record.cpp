@@ -18,6 +18,31 @@ double Record::Energy() const
 		return UNINIT;
 }
 
+bool Record::operator==(const Record & record) const
+{
+	return this->Energy() == record.Energy();
+}
+
+bool Record::operator>(const Record & record) const
+{
+	return this->Energy() > record.Energy();
+}
+
+bool Record::operator<(const Record & record) const
+{
+	return this->Energy() < record.Energy();
+}
+
+bool Record::operator>=(const Record & record) const
+{
+	return this->Energy() >= record.Energy();
+}
+
+bool Record::operator<=(const Record & record) const
+{
+	return this->Energy() <= record.Energy();
+}
+
 std::ostream & operator<<(std::ostream & os, const Record & record)
 {
 	os << "Ek: " << std::setw(10) << std::left << std::setprecision(5) << record.Energy();
