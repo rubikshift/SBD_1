@@ -18,16 +18,16 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="record.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="record.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="file.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="page.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="record.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tape.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -36,6 +36,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="file.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="record.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tape.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

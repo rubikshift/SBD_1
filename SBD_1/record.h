@@ -13,10 +13,11 @@ struct Record
 	bool operator>=(const Record& record) const;
 	bool operator<=(const Record& record) const;
 
-	static constexpr double UNINIT = -1;
-	static const unsigned int RECORD_SIZE = 2 * sizeof(double);
-
 	double v, m;
+
+	static constexpr double UNINIT = -1;
+	static const unsigned int RECORD_SIZE = sizeof(v) + sizeof(m);
+
 };
 
 std::ostream& operator<<(std::ostream& os, const Record& record);

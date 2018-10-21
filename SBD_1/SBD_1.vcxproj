@@ -77,6 +77,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -120,11 +121,13 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="page.cpp" />
     <ClCompile Include="record.cpp" />
-    <ClCompile Include="record.h" />
+    <ClCompile Include="tape.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="file.h" />
     <ClInclude Include="page.h" />
+    <ClInclude Include="record.h" />
+    <ClInclude Include="tape.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
