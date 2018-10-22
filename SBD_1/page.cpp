@@ -5,18 +5,18 @@ Page::Page()
 {
 }
 
-const char* Page::GetRawData() const
+std::unique_ptr<char[]> Page::GetRawData() const
 {
-	auto ptr = new char[BYTE_SIZE];
+	auto ptr = std::make_unique<char[]>(BYTE_SIZE);
 
-	auto tmp = (double*)ptr;
+	auto tmp = (double*)ptr.get();
 	for (int i = 0; i < PAGE_SIZE; i++)
 	{
 		tmp[2 * i] = data[i].v;
 		tmp[2 * i + 1] = data[i].m;
 	}
 
-	return (const char*)ptr;
+	return ptr;
 }
 
 void Page::ParseRawData(const char* ptr)

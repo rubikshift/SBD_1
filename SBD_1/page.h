@@ -7,7 +7,7 @@ struct Page
 {
 	Page();
 
-	const char* GetRawData() const;
+	std::unique_ptr<char[]> GetRawData() const;
 	void ParseRawData(const char* ptr);
 
 	static const unsigned int PAGE_SIZE = 8;							//Page size in records

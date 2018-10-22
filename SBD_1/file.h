@@ -16,17 +16,17 @@ class File
 
 	public:
 		File();
-		File(const std::string& fileName, int mode = DEFAULT_FILE_MODE);
+		File(const std::string& fileName, int mode = DEFAULT_FILE_MODE, unsigned int* counter = nullptr);
 		~File();
 
 		void Open(const std::string& fileName, int mode = DEFAULT_FILE_MODE);
 		void Close();
 		bool eof;
 		
-		void WriteNextRecord(const Record& record);
-		void ForceWrite();
-		Record ReadRecord();
-		Record ReadNextRecord();		
+		void WriteNextRecord(const Record& record, bool benchamark = true);
+		void ForceWrite(bool benchamark = true);
+		Record ReadRecord(bool benchamark = true);
+		Record ReadNextRecord(bool benchamark = true);
 
 		void ResetPosition();
 		void IncrementOffset();
@@ -35,8 +35,6 @@ class File
 
 		unsigned int dummies;
 		unsigned int series;
-		int size;
-
 
 		static const auto DEFAULT_FILE_MODE = std::ios::in | std::ios::out | std::ios::binary | std::ios::app;
 		static const auto DEFAULT_TAPE_MODE = std::ios::in | std::ios::out | std::ios::binary | std::ios::trunc;
@@ -46,14 +44,14 @@ class File
 		std::string fileName;
 		Page buffer;
 		Record last;
-
+		unsigned int* counter;
 
 		unsigned int currentPageId, lastPageId;
 		unsigned int pageOffset;
 
 		void ClearBuffer();
-		bool ReadPage();
-		void WritePage();
+		bool ReadPage(bool benchamark = true);
+		void WritePage(bool benchamark = true);
 };
 
 void Merge(File& tape1, File& tape2, File& result);

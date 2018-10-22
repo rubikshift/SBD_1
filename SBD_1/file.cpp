@@ -1,10 +1,11 @@
+#include <iomanip>
 #include "file.h"
 
 File::File()
 {
 }
 
-File::File(const std::string& fileName, int mode)
+File::File(const std::string& fileName, int mode, unsigned int* counter) : counter(counter)
 {
 	Open(fileName, mode);
 }
@@ -20,7 +21,6 @@ void File::Open(const std::string & fileName, int mode)
 	file.open(fileName, mode);
 	series = 0;
 	dummies = 0;
-	size = 0;
 	ResetPosition();
 }
 
@@ -30,41 +30,38 @@ void File::Close()
 	file.close();
 }
 
-void File::WriteNextRecord(const Record& record)
+void File::WriteNextRecord(const Record& record, bool benchamark)
 {
 	if (last > record || series == 0)
 		series++;
-	size++;
+
 	buffer.data[pageOffset] = record;
 	last = record;
 
 	IncrementOffset();
 
 	if (pageOffset == 0)
-		WritePage();
+		WritePage(benchamark);
 }
 
-void File::ForceWrite()
+void File::ForceWrite(bool benchamark)
 {
 	if (pageOffset != 0)
-		WritePage();
+		WritePage(benchamark);
 	pageOffset = 0;
 }
 
-Record File::ReadRecord()
+Record File::ReadRecord(bool benchamark)
 {
 	if (lastPageId < currentPageId)
-		ReadPage();
+		ReadPage(benchamark);
 
-	auto r = buffer.data[pageOffset];
-	last = r;
-	return r;
+	return buffer.data[pageOffset];
 }
 
-Record File::ReadNextRecord()
+Record File::ReadNextRecord(bool benchamark)
 {
-	size--;
-	auto r = ReadRecord();
+	auto r = ReadRecord(benchamark);
 
 	IncrementOffset();
 	
@@ -82,6 +79,7 @@ void File::ResetPosition()
 	currentPageId = 1;
 	pageOffset = 0;
 	eof = false;
+	file.clear();
 	last = { Record::UNINIT, Record::UNINIT };
 }
 
@@ -96,9 +94,11 @@ void File::IncrementOffset()
 void File::PrintTape()
 {
 	std::cout << fileName << " S: " << series << " D: " << dummies << std::endl;
+	std::cout << "\tPage:Offset " << currentPageId << ":" << pageOffset << " eof " << eof << std::endl;
+	unsigned int i = 0;
+	while (!eof)
+		std::cout << "\t\t" << std::setw(3) << std::right << i++ << ". " << ReadNextRecord(false) << std::endl;
 	ResetPosition();
-	while (!eof && series != 0)
-		std::cout << "\t" << ReadNextRecord() << std::endl;
 }
 
 void File::ClearBuffer()
@@ -107,77 +107,87 @@ void File::ClearBuffer()
 		buffer.data[i] = { Record::UNINIT, Record::UNINIT };
 }
 
-void File::WritePage()
+void File::WritePage(bool benchamark)
 {
+	if (benchamark && counter != nullptr)
+		(*counter)++;
 	auto binaryData = buffer.GetRawData();
-	file.write(binaryData, Page::BYTE_SIZE);
+	file.write(binaryData.get(), Page::BYTE_SIZE);
 
 	ClearBuffer();
 }
 
 
-bool File::ReadPage()
+bool File::ReadPage(bool benchamark)
 {
-	ClearBuffer();
-
-	if (file.eof() || eof)
-		return eof = false;
-
-	lastPageId++;
 	char tmp[Page::BYTE_SIZE];	//Page::BYTE_SIZE is constexpr => valid memory alocation
-	file.read(tmp, Page::BYTE_SIZE);
-	buffer.ParseRawData(tmp);
-
+	if(!eof && file.read(tmp, Page::BYTE_SIZE))
+		buffer.ParseRawData(tmp);
+	else
+	{
+		ClearBuffer();
+		eof = true;
+		return false;
+	}
+	if (benchamark && counter != nullptr)
+		(*counter)++;
+	lastPageId++;
 	return true;
 }
 
 void Merge(File& tape1, File& tape2, File& result) // assumption: tape1.TotalSeries() >= tape2.TotalSeries()
 {
 	Record r1, r2, last1, last2;
-	tape1.ResetPosition();
-	result.ResetPosition();
-
 	MergeDummies(tape1, tape2, result); //if tape1.dummies == 0 does not have any effect
 	unsigned int i = 0;
 	auto n = tape2.series; //assing series counter to n, because MergeDummies() affects series counter
 	while (i < n)
 	{
 		r1 = tape1.ReadRecord();
-		if (last1 > r1 || tape1.eof) //End of series on tape1, write rest of actual series from tape 2
+		r2 = tape2.ReadRecord();
+
+		if (last1 > r1 || tape1.eof)		//end of actual series on tape1 or end of tape1
 		{
+			//rewrite rest of actual series from tape2
+			//std::cout << tape1.fileName << ": end of series " << r1 << std::endl;
 			tape1.dummies++;
 			tape1.series--;
 			last1 = { Record::UNINIT, Record::UNINIT };
+			last2 = { Record::UNINIT, Record::UNINIT };
 			MergeDummies(tape1, tape2, result);
 			i++;
-			continue;
 		}
-
-		r2 = tape2.ReadRecord();
-		if (last2 > r2 || tape2.eof)//End of series on tape2, write rest of actual series from tape1
+		else if (last2 > r2 || tape2.eof)	//end of actual series on tape2 or end of tape2
 		{
+			//rewrite rest of actual series from tape1
+			//std::cout << tape2.fileName << ": end of series " << r2 << std::endl;
 			tape2.dummies++;
 			tape2.series--;
+			last1 = { Record::UNINIT, Record::UNINIT };
 			last2 = { Record::UNINIT, Record::UNINIT };
 			MergeDummies(tape2, tape1, result);
 			i++;
-			continue;
 		}
-		last1 = r1;
-		last2 = r2;
-
-		if (r2 > r1) //write r1 to result
+		else if (r2 > r1)					//write r1 to result
 		{
 			result.WriteNextRecord(r1);
+			last1 = r1;
+			last2 = r2;
 			tape1.ReadNextRecord();
 		}
-		else //write r2 to result
+		else								//write r2 to result
 		{
 			result.WriteNextRecord(r2);
+			last1 = r1;
+			last2 = r2;
 			tape2.ReadNextRecord();
 		}
+
 	}
 	result.ForceWrite();
+
+	tape2.ResetPosition();
+	result.ResetPosition();
 }
 
 void MergeDummies(File& tape1, File& tape2, File& result)

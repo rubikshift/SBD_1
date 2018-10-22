@@ -3,7 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
-
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
 
@@ -11,13 +11,15 @@
 
 void log(std::string text);
 double random();
-void distribute(File& source, File tapes[3]);
-int sort(File tapes[3]);
+unsigned int distribute(File& source, File tapes[3]);
+unsigned int sort(File tapes[3]);
+
+const unsigned int TAPES_COUNT = 3;
 
 int main(int argc, char* argv[])
 {
 	int n;
-	double v, m;
+	int v, m;
 	std::stringstream stream;
 	std::string fileName = "sbd1.data";
 	Record r;
@@ -25,9 +27,13 @@ int main(int argc, char* argv[])
 
 	unsigned int IOcounter = 0;
 
-	File tapes[] = { File("tape1", File::DEFAULT_TAPE_MODE), File("tape2", File::DEFAULT_TAPE_MODE), File("tape3", File::DEFAULT_TAPE_MODE) };
+	File tapes[TAPES_COUNT] = { 
+		File("tape1", File::DEFAULT_TAPE_MODE, &IOcounter), 
+		File("tape2", File::DEFAULT_TAPE_MODE, &IOcounter),
+		File("tape3", File::DEFAULT_TAPE_MODE, &IOcounter) 
+	};
 
-	//srand(time(NULL));
+	std::srand(std::time(nullptr));
 
 	if (argc != 3)
 	{
@@ -60,7 +66,7 @@ int main(int argc, char* argv[])
 			for (int i = 0; i < n; i++)
 			{
 				r = Record(random(), random());
-				std::cout << r << std::endl;
+				//std::cout << r << std::endl;
 
 				dataFile.WriteNextRecord(r);
 			}
@@ -75,7 +81,7 @@ int main(int argc, char* argv[])
 				std::cin >> v;
 				std::cin >> m;
 				r = Record(v, m);
-				std::cout << r << std::endl;
+				//std::cout << r << std::endl;
 
 				dataFile.WriteNextRecord(r);
 			}
@@ -87,12 +93,33 @@ int main(int argc, char* argv[])
 
 	log("START DISTRIBUTION");
 	dataFile.ResetPosition();
-	distribute(dataFile, tapes);
+	auto series = distribute(dataFile, tapes);
+	std::cout << "\tSeries counter: " << series << std::endl;
+	std::cout << std::endl;
 	log("END DISTRIBUTION");
 
 	log("START SORTING");
-	int x = sort(tapes);
+	auto phases = sort(tapes);
+	double expectedPhases = 1.04 * log(series) / log(2);
+	double diffPhases = abs((double)phases - expectedPhases);
+	diffPhases *= 100;
+	diffPhases /= expectedPhases;
+	std::cout << "\nPhases: " << phases << " | Expected: " << expectedPhases << " | Diff [%] " << diffPhases << std::endl;
+	std::cout << std::endl;
 	log("END SORTING");
+	
+	//if (x != -1)
+	//	tapes[x].PrintTape();
+
+	double expected = ((1.04 * log(series) / log(2)) + 1.0);
+	expected *= 2;
+	expected /= Page::PAGE_SIZE;
+	expected *= n;
+	double diff = abs((double)IOcounter - expected);
+	diff *= 100;
+	diff /= expected;
+	std::cout << "\nIOCounter: " << IOcounter << " | Expected: " << expected << " | Diff [%] " <<  diff << std::endl;
+
 	return 0;
 }
 
@@ -104,27 +131,30 @@ void log(std::string stage)
 
 double random()
 {
-	auto base = rand() % 1000 + 1;
+	auto base = std::rand() / ((RAND_MAX + 1u) / 10000);
 	return (double)base / 100.0;
 }
 
-void distribute(File & source, File tapes[3])
+unsigned int distribute(File & source, File tapes[3])
 {
 	unsigned int goal = 1;
 	unsigned int currentTape = 0;
+	unsigned int series = 0;
 	Record r, last;
-
 	while (!source.eof)
 	{
 		r = source.ReadNextRecord();
-		if (last > r && tapes[currentTape].series == goal)
+		if (last > r) 
 		{
-			goal = tapes[0].series + tapes[1].series;
-			currentTape++;
-			currentTape %= 2;
+			series++;
+			if ((tapes[currentTape].series == goal))
+			{
+				goal = tapes[0].series + tapes[1].series;
+				currentTape++;
+				currentTape %= (TAPES_COUNT - 1);
+			}
 		}
 		last = r;
-		std::cout << r << std::endl;
 		tapes[currentTape].WriteNextRecord(r);
 	}
 	tapes[currentTape].dummies = goal - tapes[currentTape].series;
@@ -132,45 +162,53 @@ void distribute(File & source, File tapes[3])
 	tapes[0].ForceWrite();
 	tapes[1].ForceWrite();
 
-	tapes[0].ResetPosition();
-	tapes[1].ResetPosition();
-	tapes[2].ResetPosition();
+	for(unsigned int i = 0; i < TAPES_COUNT; i++)
+		tapes[i].ResetPosition();
+
+	return series;
 }
 
-int sort(File tapes[3])
+void printPhase(const File tapes[TAPES_COUNT], unsigned int phase)
 {
-	int a, b, c = 2;
+	std::cout << "\tPhase " << phase << ": \t";
+	for (unsigned int i = 0; i < TAPES_COUNT; i++)
+	{
+		std::cout << tapes[i].series;
+		if (tapes[i].dummies > 0)
+			std::cout << " (" << tapes[i].dummies << ")";
+		if (i != TAPES_COUNT - 1)
+			std::cout << " | ";
+	}
+	std::cout << std::endl;
+}
+
+unsigned int sort(File tapes[3])
+{
+	int a, b, c = 2, tmp;
+	
 	if (tapes[0].series + tapes[0].dummies > tapes[1].series + tapes[1].dummies)
 	{
-		a = 0;
-		b = 1;
+		a = 0;	b = 1;
 	}
 	else
 	{
-		a = 1;
-		b = 0;
+		a = 1; b = 0;
 	}
 
-	std::cout << tapes[0].size << " | " << tapes[1].size << " | " << tapes[2].size << std::endl;
-	std::cout << tapes[0].series << " | " << tapes[1].series << " | " << tapes[2].series << std::endl;
-	std::cout << "-----" << std::endl;
-
+	unsigned int phases = 0;
+	printPhase(tapes, phases);
 
 	while (tapes[0].series + tapes[1].series + tapes[2].series != 1)
 	{
 		Merge(tapes[a], tapes[b], tapes[c]);
-		a = (a + 1) % 3;
-		b = (b + 1) % 3;
-		c = (c + 1) % 3;
-		std::cout << tapes[0].size << " | " << tapes[1].size << " | " << tapes[2].size << std::endl;
-		std::cout << tapes[0].series << " | " << tapes[1].series << " | " << tapes[2].series << std::endl;
-		std::cout << "-----" << std::endl;
-	}
 
-	if (tapes[a].series == 1)
-		return a;
-	else if (tapes[b].series == 1)
-		return b;
-	else
-		return c;
+		phases++;
+		printPhase(tapes, phases);
+
+		tmp = c;
+		c = b; 
+		b = a;
+		a = tmp;
+	}
+	return phases;
 }
