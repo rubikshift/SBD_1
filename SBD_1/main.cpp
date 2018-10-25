@@ -9,12 +9,12 @@
 
 #include "file.h"
 
+const unsigned int TAPES_COUNT = 3;
+
 void log(std::string text);
 double random();
-unsigned int distribute(File& source, File tapes[3]);
-unsigned int sort(File tapes[3]);
-
-const unsigned int TAPES_COUNT = 3;
+unsigned int distribute(File& source, File tapes[TAPES_COUNT]);
+unsigned int sort(File tapes[TAPES_COUNT]);
 
 int main(int argc, char* argv[])
 {
@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 		File("tape3", File::DEFAULT_TAPE_MODE, &IOcounter) 
 	};
 
-	std::srand(std::time(nullptr));
+	//std::srand(std::time(nullptr));
 
 	if (argc != 3)
 	{
@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 			for (int i = 0; i < n; i++)
 			{
 				r = Record(random(), random());
-				//std::cout << r << std::endl;
+				std::cout << r << std::endl;
 
 				dataFile.WriteNextRecord(r);
 			}
@@ -108,8 +108,9 @@ int main(int argc, char* argv[])
 	std::cout << std::endl;
 	log("END SORTING");
 	
-	//if (x != -1)
-	//	tapes[x].PrintTape();
+	for (unsigned int i = 0; i < TAPES_COUNT; i++)
+		if(tapes[i].series == 1)
+			tapes[i].PrintTape();
 
 	double expected = ((1.04 * log(series) / log(2)) + 1.0);
 	expected *= 2;
@@ -131,11 +132,11 @@ void log(std::string stage)
 
 double random()
 {
-	auto base = std::rand() / ((RAND_MAX + 1u) / 10000);
-	return (double)base / 100.0;
+	auto base = std::rand() % 10 + 1;
+	return (double)base / 1.0;
 }
 
-unsigned int distribute(File & source, File tapes[3])
+unsigned int distribute(File & source, File tapes[TAPES_COUNT])
 {
 	unsigned int goal = 1;
 	unsigned int currentTape = 0;
@@ -144,6 +145,8 @@ unsigned int distribute(File & source, File tapes[3])
 	while (!source.eof)
 	{
 		r = source.ReadNextRecord();
+		if (!r.isInitialized()) // equal to eof
+			break;
 		if (last > r) 
 		{
 			series++;
@@ -168,7 +171,7 @@ unsigned int distribute(File & source, File tapes[3])
 	return series;
 }
 
-void printPhase(const File tapes[TAPES_COUNT], unsigned int phase)
+void printPhase(File tapes[TAPES_COUNT], unsigned int phase)
 {
 	std::cout << "\tPhase " << phase << ": \t";
 	for (unsigned int i = 0; i < TAPES_COUNT; i++)
@@ -180,9 +183,11 @@ void printPhase(const File tapes[TAPES_COUNT], unsigned int phase)
 			std::cout << " | ";
 	}
 	std::cout << std::endl;
+	for (unsigned int i = 0; i < TAPES_COUNT; i++)
+		tapes[i].PrintTape();
 }
 
-unsigned int sort(File tapes[3])
+unsigned int sort(File tapes[TAPES_COUNT])
 {
 	int a, b, c = 2, tmp;
 	

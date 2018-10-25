@@ -48,6 +48,7 @@ void File::ForceWrite(bool benchamark)
 {
 	if (pageOffset != 0)
 		WritePage(benchamark);
+	file.flush();
 	pageOffset = 0;
 }
 
@@ -95,10 +96,27 @@ void File::PrintTape()
 {
 	std::cout << fileName << " S: " << series << " D: " << dummies << std::endl;
 	std::cout << "\tPage:Offset " << currentPageId << ":" << pageOffset << " eof " << eof << std::endl;
+	
+	auto bckPageOffset = pageOffset;
+	auto bckcurrentPageId = currentPageId;
+	auto bckLast = last;
+
 	unsigned int i = 0;
-	while (!eof)
-		std::cout << "\t\t" << std::setw(3) << std::right << i++ << ". " << ReadNextRecord(false) << std::endl;
+	Record r;
+	while (!eof && series != 0)
+	{
+		r = ReadNextRecord(false);
+		if (!r.isInitialized())
+			break;
+		std::cout << "\t\t" << std::setw(3) << std::right << i++ << ". " << r << std::endl;
+	}
+
 	ResetPosition();
+	while (bckcurrentPageId > currentPageId)
+		ReadNextRecord(false);
+	while (bckPageOffset > pageOffset)
+		ReadNextRecord(false);
+	last = bckLast;
 }
 
 void File::ClearBuffer()
@@ -146,7 +164,7 @@ void Merge(File& tape1, File& tape2, File& result) // assumption: tape1.TotalSer
 		r1 = tape1.ReadRecord();
 		r2 = tape2.ReadRecord();
 
-		if (last1 > r1 || tape1.eof)		//end of actual series on tape1 or end of tape1
+		if (last1 > r1 || tape1.eof || !r1.isInitialized())		//end of actual series on tape1 or end of tape1
 		{
 			//rewrite rest of actual series from tape2
 			//std::cout << tape1.fileName << ": end of series " << r1 << std::endl;
@@ -157,7 +175,7 @@ void Merge(File& tape1, File& tape2, File& result) // assumption: tape1.TotalSer
 			MergeDummies(tape1, tape2, result);
 			i++;
 		}
-		else if (last2 > r2 || tape2.eof)	//end of actual series on tape2 or end of tape2
+		else if (last2 > r2 || tape2.eof || !r2.isInitialized())	//end of actual series on tape2 or end of tape2
 		{
 			//rewrite rest of actual series from tape1
 			//std::cout << tape2.fileName << ": end of series " << r2 << std::endl;
