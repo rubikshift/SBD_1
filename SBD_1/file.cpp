@@ -48,8 +48,6 @@ void File::ForceWrite(bool benchamark)
 {
 	if (pageOffset != 0)
 		WritePage(benchamark);
-	file.flush();
-	pageOffset = 0;
 }
 
 Record File::ReadRecord(bool benchamark)
@@ -72,15 +70,28 @@ Record File::ReadNextRecord(bool benchamark)
 	return r;
 }
 
+void File::SwitchToReadMode()
+{
+	ForceWrite();
+	file.close();
+	file.open(fileName, DEFAULT_INPUT_MODE);
+	ResetPosition();
+}
+
+void File::SwitchToWriteMode()
+{
+	file.close();
+	file.open(fileName, DEFAULT_OUTPUT_MODE);
+	series = 0;
+	ResetPosition();
+}
+
 void File::ResetPosition()
 {
-	file.seekg(std::ios::beg);
-	file.seekp(std::ios::beg);
 	lastPageId = 0;
 	currentPageId = 1;
 	pageOffset = 0;
 	eof = false;
-	file.clear();
 	last = { Record::UNINIT, Record::UNINIT };
 }
 
@@ -90,33 +101,6 @@ void File::IncrementOffset()
 	pageOffset %= Page::PAGE_SIZE;
 	if (pageOffset == 0)
 		currentPageId++;
-}
-
-void File::PrintTape()
-{
-	std::cout << fileName << " S: " << series << " D: " << dummies << std::endl;
-	std::cout << "\tPage:Offset " << currentPageId << ":" << pageOffset << " eof " << eof << std::endl;
-	
-	auto bckPageOffset = pageOffset;
-	auto bckcurrentPageId = currentPageId;
-	auto bckLast = last;
-
-	unsigned int i = 0;
-	Record r;
-	while (!eof && series != 0)
-	{
-		r = ReadNextRecord(false);
-		if (!r.isInitialized())
-			break;
-		std::cout << "\t\t" << std::setw(3) << std::right << i++ << ". " << r << std::endl;
-	}
-
-	ResetPosition();
-	while (bckcurrentPageId > currentPageId)
-		ReadNextRecord(false);
-	while (bckPageOffset > pageOffset)
-		ReadNextRecord(false);
-	last = bckLast;
 }
 
 void File::ClearBuffer()
@@ -202,10 +186,8 @@ void Merge(File& tape1, File& tape2, File& result) // assumption: tape1.TotalSer
 		}
 
 	}
-	result.ForceWrite();
-
-	tape2.ResetPosition();
-	result.ResetPosition();
+	result.SwitchToReadMode();
+	tape2.SwitchToWriteMode();
 }
 
 void MergeDummies(File& tape1, File& tape2, File& result)
@@ -228,5 +210,36 @@ void MergeDummies(File& tape1, File& tape2, File& result)
 
 	tape2.series -= i;
 	tape1.dummies -= i;
+}
+
+std::ostream & operator<<(std::ostream & os, File & tape)
+{
+	os << tape.fileName << " S: " << tape.series << " D: " << tape.dummies << "\n";
+	os << "\tPage:Offset " << tape.currentPageId << ":" << tape.pageOffset << " eof " << tape.eof << "\n";
+
+	unsigned int i = 0;
+	Record r;
+	auto bckPageOffset = tape.pageOffset;
+	auto bckPageId = tape.currentPageId;
+
+	if (tape.series == 0)
+		return os;
+
+	while (!tape.eof)
+	{
+		r = tape.ReadNextRecord(false);
+		if (!r.isInitialized())
+			break;
+		os << "\t" << std::setw(3) << std::right << i++ << "." << r << "\n";
+	}
+	tape.file.clear();
+	tape.file.seekg(0, std::ios::beg);
+	tape.ResetPosition();
+	while (tape.currentPageId < bckPageId)
+		tape.ReadNextRecord(false);
+	while (tape.pageOffset < bckPageOffset)
+		tape.ReadNextRecord(false);
+
+	return os;
 }
 

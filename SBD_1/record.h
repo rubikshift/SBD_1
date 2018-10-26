@@ -15,7 +15,7 @@ struct Record
 
 	double v, m;
 
-	static constexpr double UNINIT = -1;
+	static constexpr double UNINIT = -INFINITY;
 	static const unsigned int RECORD_SIZE = sizeof(v) + sizeof(m);
 
 };

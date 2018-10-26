@@ -14,12 +14,14 @@ const unsigned int TAPES_COUNT = 3;
 void log(std::string text);
 double random();
 unsigned int distribute(File& source, File tapes[TAPES_COUNT]);
-unsigned int sort(File tapes[TAPES_COUNT]);
+void printPhase(File tapes[TAPES_COUNT], unsigned int phase, bool verbose = false);
+unsigned int sort(File tapes[TAPES_COUNT], bool verbose = false);
 
 int main(int argc, char* argv[])
 {
 	int n;
-	int v, m;
+	double v, m;
+	bool verbose = false;
 	std::stringstream stream;
 	std::string fileName = "sbd1.data";
 	Record r;
@@ -28,32 +30,34 @@ int main(int argc, char* argv[])
 	unsigned int IOcounter = 0;
 
 	File tapes[TAPES_COUNT] = { 
-		File("tape1", File::DEFAULT_TAPE_MODE, &IOcounter), 
-		File("tape2", File::DEFAULT_TAPE_MODE, &IOcounter),
-		File("tape3", File::DEFAULT_TAPE_MODE, &IOcounter) 
+		File("tape1", File::DEFAULT_OUTPUT_MODE, &IOcounter),
+		File("tape2", File::DEFAULT_OUTPUT_MODE, &IOcounter),
+		File("tape3", File::DEFAULT_OUTPUT_MODE, &IOcounter)
 	};
 
-	//std::srand(std::time(nullptr));
+	std::srand(std::time(nullptr));
 
-	if (argc != 3)
+	if (argc < 3 || argc > 4)
 	{
 		if (argc < 3)
 			std::cout << "To few arguments" << std::endl;
-		else
+		else if (argc > 4)
 			std::cout << "To many arguments" << std::endl;
 		std::cout << "Help:" << std::endl;
-		std::cout << "\tsbd_1.exe f file" << std::endl;
-		std::cout << "\t\t reads records from file" << std::endl;
-		std::cout << "\tsbd_1.exe r n" << std::endl;
-		std::cout << "\t\t randomly generates n records" << std::endl;
-		std::cout << "\tsbd_1.exe m n" << std::endl;
-		std::cout << "\t\t user has to manualy type n records" << std::endl;
+		std::cout << "\tsbd_1.exe f file v" << std::endl;
+		std::cout << "\t\t reads records from file, v is optional for verbose" << std::endl;
+		std::cout << "\tsbd_1.exe r n v" << std::endl;
+		std::cout << "\t\t randomly generates n records, v is optional for verbose" << std::endl;
+		std::cout << "\tsbd_1.exe m n v" << std::endl;
+		std::cout << "\t\t user has to manualy type n records, v is optional for verbose" << std::endl;
 		return 1;
 	}
 	
 	log("START PREPARING");
 	stream << argv[2];
 
+	if (argc == 4 && argv[3][0] == 'v')
+		verbose = true;
 	switch (argv[1][0])
 	{
 		case 'f': 
@@ -62,11 +66,12 @@ int main(int argc, char* argv[])
 			break;
 		case 'r':
 			stream >> n;
-			dataFile.Open(fileName, File::DEFAULT_TAPE_MODE);
+			dataFile.Open(fileName, File::DEFAULT_OUTPUT_MODE);
 			for (int i = 0; i < n; i++)
 			{
 				r = Record(random(), random());
-				std::cout << r << std::endl;
+				if(verbose)
+					std::cout << r << std::endl;
 
 				dataFile.WriteNextRecord(r);
 			}
@@ -75,13 +80,14 @@ int main(int argc, char* argv[])
 			break;
 		case 'm': 
 			stream >> n;
-			dataFile.Open(fileName, File::DEFAULT_TAPE_MODE);
+			dataFile.Open(fileName, File::DEFAULT_OUTPUT_MODE);
 			for (int i = 0; i < n; i++)
 			{
 				std::cin >> v;
 				std::cin >> m;
 				r = Record(v, m);
-				//std::cout << r << std::endl;
+				if(verbose)
+					std::cout << r << std::endl;
 
 				dataFile.WriteNextRecord(r);
 			}
@@ -92,14 +98,13 @@ int main(int argc, char* argv[])
 	log("END PREPARING");
 
 	log("START DISTRIBUTION");
-	dataFile.ResetPosition();
 	auto series = distribute(dataFile, tapes);
 	std::cout << "\tSeries counter: " << series << std::endl;
 	std::cout << std::endl;
 	log("END DISTRIBUTION");
 
 	log("START SORTING");
-	auto phases = sort(tapes);
+	auto phases = sort(tapes, verbose);
 	double expectedPhases = 1.04 * log(series) / log(2);
 	double diffPhases = abs((double)phases - expectedPhases);
 	diffPhases *= 100;
@@ -109,8 +114,12 @@ int main(int argc, char* argv[])
 	log("END SORTING");
 	
 	for (unsigned int i = 0; i < TAPES_COUNT; i++)
-		if(tapes[i].series == 1)
-			tapes[i].PrintTape();
+		if (tapes[i].series == 1)
+		{
+			std::cout << "Result File: " << tapes[i].fileName << std::endl;
+			if(verbose)
+				std::cout << tapes[i] << std::endl;
+		}
 
 	double expected = ((1.04 * log(series) / log(2)) + 1.0);
 	expected *= 2;
@@ -132,15 +141,15 @@ void log(std::string stage)
 
 double random()
 {
-	auto base = std::rand() % 10 + 1;
-	return (double)base / 1.0;
+	auto base = std::rand() % 1000 + 1;
+	return (double)base / 100.0;
 }
 
 unsigned int distribute(File & source, File tapes[TAPES_COUNT])
 {
 	unsigned int goal = 1;
 	unsigned int currentTape = 0;
-	unsigned int series = 0;
+	unsigned int series = 1;
 	Record r, last;
 	while (!source.eof)
 	{
@@ -162,16 +171,13 @@ unsigned int distribute(File & source, File tapes[TAPES_COUNT])
 	}
 	tapes[currentTape].dummies = goal - tapes[currentTape].series;
 	
-	tapes[0].ForceWrite();
-	tapes[1].ForceWrite();
-
-	for(unsigned int i = 0; i < TAPES_COUNT; i++)
-		tapes[i].ResetPosition();
+	tapes[0].SwitchToReadMode();
+	tapes[1].SwitchToReadMode();
 
 	return series;
 }
 
-void printPhase(File tapes[TAPES_COUNT], unsigned int phase)
+void printPhase(File tapes[TAPES_COUNT], unsigned int phase, bool verbose)
 {
 	std::cout << "\tPhase " << phase << ": \t";
 	for (unsigned int i = 0; i < TAPES_COUNT; i++)
@@ -183,11 +189,13 @@ void printPhase(File tapes[TAPES_COUNT], unsigned int phase)
 			std::cout << " | ";
 	}
 	std::cout << std::endl;
-	for (unsigned int i = 0; i < TAPES_COUNT; i++)
-		tapes[i].PrintTape();
+
+	if(verbose)
+		for (unsigned int i = 0; i < TAPES_COUNT; i++)
+			std::cout << tapes[i] << std::endl;
 }
 
-unsigned int sort(File tapes[TAPES_COUNT])
+unsigned int sort(File tapes[TAPES_COUNT], bool verbose)
 {
 	int a, b, c = 2, tmp;
 	
@@ -201,14 +209,14 @@ unsigned int sort(File tapes[TAPES_COUNT])
 	}
 
 	unsigned int phases = 0;
-	printPhase(tapes, phases);
+	printPhase(tapes, phases, verbose);
 
 	while (tapes[0].series + tapes[1].series + tapes[2].series != 1)
 	{
 		Merge(tapes[a], tapes[b], tapes[c]);
 
 		phases++;
-		printPhase(tapes, phases);
+		printPhase(tapes, phases, verbose);
 
 		tmp = c;
 		c = b; 
