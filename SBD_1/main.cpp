@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 				dataFile.WriteNextRecord(r);
 			}
 			dataFile.Close();
-			dataFile.Open(fileName);
+			dataFile.Open(fileName, File::DEFAULT_INPUT_MODE, &IOcounter);
 			break;
 		case 'm': 
 			stream >> n;
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 				dataFile.WriteNextRecord(r);
 			}
 			dataFile.Close();
-			dataFile.Open(fileName);
+			dataFile.Open(fileName, File::DEFAULT_INPUT_MODE, &IOcounter);
 			break;
 	}
 	log("END PREPARING");
@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 
 	log("START SORTING");
 	auto phases = sort(tapes, verbose);
-	double expectedPhases = 1.04 * log(series) / log(2);
+	double expectedPhases = 1.45 * log(series) / log(2);
 	double diffPhases = abs((double)phases - expectedPhases);
 	diffPhases *= 100;
 	diffPhases /= expectedPhases;
@@ -141,7 +141,7 @@ void log(std::string stage)
 
 double random()
 {
-	auto base = std::rand() % 1000 + 1;
+	auto base = std::rand() % 10000 + 1;
 	return (double)base / 100.0;
 }
 

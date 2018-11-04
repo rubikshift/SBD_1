@@ -20,7 +20,7 @@ class File
 		File(const std::string& fileName, int mode = DEFAULT_INPUT_MODE, unsigned int* counter = nullptr);
 		~File();
 
-		void Open(const std::string& fileName, int mode = DEFAULT_INPUT_MODE);
+		void Open(const std::string& fileName, int mode = DEFAULT_INPUT_MODE, unsigned int* counter = nullptr);
 		void Close();
 		bool eof;
 		

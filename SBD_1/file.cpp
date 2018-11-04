@@ -5,9 +5,9 @@ File::File()
 {
 }
 
-File::File(const std::string& fileName, int mode, unsigned int* counter) : counter(counter)
+File::File(const std::string& fileName, int mode, unsigned int* counter)
 {
-	Open(fileName, mode);
+	Open(fileName, mode, counter);
 }
 
 File::~File()
@@ -15,9 +15,10 @@ File::~File()
 	Close();
 }
 
-void File::Open(const std::string & fileName, int mode)
+void File::Open(const std::string & fileName, int mode, unsigned int* counter)
 {
 	this->fileName = fileName;
+	this->counter = counter;
 	file.open(fileName, mode);
 	series = 0;
 	dummies = 0;
