@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 #include <iostream>
 
 struct Record
@@ -15,7 +16,7 @@ struct Record
 
 	double v, m;
 
-	static constexpr double UNINIT = -INFINITY;
+	static constexpr double UNINIT = -1 * std::numeric_limits<double>::infinity();
 	static const unsigned int RECORD_SIZE = sizeof(v) + sizeof(m);
 
 };
